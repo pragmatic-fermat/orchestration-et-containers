@@ -1,8 +1,10 @@
 # Lab Kubernetes
 
 - [K8s 101](#k8s-101)
-- [deployer une application en yaml](#deployer-une-application)
-- [déployer avec Helm, avec ingress et certificat TLS](#déployer-avec-helm)
+- [Deployer une application en yaml](#deployer-une-application)
+- [Déployer avec Helm, avec ingress et certificat TLS](#déployer-avec-helm)
+- [Mettre en place un CD avec ArgoCD](#utiliser-argocd)
+- [Cloisonner et Filtrer avec les Network Policies](#mettre-en-place-un-network-policy)
 
 
 ## K8s 101
