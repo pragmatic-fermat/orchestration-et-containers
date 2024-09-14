@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BUCKET_NAME="kubeconfig-l"
+BUCKET_NAME="kconfig-l"
 
 ##Cleanup wole bucket
 for f in $(s3cmd ls s3://${BUCKET_NAME}/ | awk '{print $4}'); do
