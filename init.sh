@@ -9,7 +9,9 @@ fi
 GRP=$1
 
 ENTROPY=$2
-URL="https://kconfig.fra1.digitaloceanspaces.com/k8-do-grp${GRP}-${ENTROPY}.kubeconfig.yaml"
+BUCKET_NAME="kconfig-l"
+
+URL="https://${BUCKET_NAME}.fra1.digitaloceanspaces.com/k8-do-grp${GRP}-${ENTROPY}.kubeconfig.yaml"
 echo "Downloading $URL ..."
 
 [ ! -d ~/.kube ] && mkdir ~/.kube
