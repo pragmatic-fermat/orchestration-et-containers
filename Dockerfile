@@ -1,4 +1,5 @@
-FROM ubuntu
+FROM alpine
 
-RUN apt update &&
-    apt -y atop
+RUN apk update \
+    && apk add atop
+
