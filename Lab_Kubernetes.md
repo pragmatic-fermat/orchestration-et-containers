@@ -1,5 +1,6 @@
 # Lab Kubernetes
 
+
 - [K8s 101](#k8s-101)
 - [Deployer une application en yaml](#deployer-une-application)
 - [Déployer avec Helm, avec ingress et certificat TLS](#déployer-avec-helm)
@@ -271,3 +272,201 @@ argocd app patch improvedguestbook --patch '{"spec": { "source": { "targetRevisi
 ```
 
 ## Mettre en place un Network Policy
+
+### Mise en place d'une application Guestbook
+
+Cloner le Guestbook PHP dans votre environnement  Github CodeSpaces dans un répertoire différent de votre racine :
+```shell
+pwd 
+cd .. 
+git clone https://github.com/GoogleCloudPlatform/kubernetes-engine-samples 
+cd kubernetes-engine-samples/quickstarts/guestbook
+```
+
+L'architecture de l'appli Guestbook est décrite ici : ![](https://cloud.google.com/static/kubernetes-engine/images/guestbook_diagram.svg)
+
+Créer le deploiement `redis-leader` :
+```shell
+kubectl apply -f redis-leader-deployment.yaml
+```
+.. et son service ClusterIP
+```shell
+kubectl apply -f redis-leader-service.yaml
+```
+Puis les redis-follower 
+
+Déployer le deploiment redis-follower manquant :
+```shell
+kubectl apply -f redis-follower-deployment.yaml
+```
+
+.. et son service
+
+```shell
+kubectl apply -f redis-follower-service.yaml
+
+
+Puis le frontend :
+
+```shell
+kubectl apply -f frontend-deployment.yaml
+```
+
+Vérifier que les replicas sont bien déployés :
+```shell
+kubectl get pods -l app=guestbook -l tier=frontend
+```
+
+Exposer le service `frontend` (c'est un LoadBalancer) :
+```shell
+kubectl apply -f frontend-service.yaml
+```
+
+
+
+### Redaction d'une NetPol
+
+Créez un Network Policy (NP) en ingress qui :
+* s'applique au composant `redis-leader` 
+* qui permet l'accès depuis les  seuls `redis-follower` et les `frontend` (i.e aucun autre Pod ne peut y accéder)
+
+Pour cela, utiliser :
+* le [Network Policy Editor Cilium](https://editor.cilium.io/)
+* le visualisateur [Orca](https://orca.tufin.io/netpol/)
+
+Aidez-vous des labels appliqués sur les Pods :
+```bash
+kubectl get pods --show-labels
+```
+Voici une solution :
+
+```yaml
+## np-allow-from-redis-and-frontend.yaml
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: allow-from-redis-and-frontend
+spec:
+  policyTypes:
+  - Ingress
+  podSelector:
+    matchLabels:
+      app: redis
+      role: leader
+      tier: backend
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: guestbook
+          tier: frontend
+    - podSelector:
+        matchLabels:
+          app: redis
+          role: follower
+          tier: backend         
+```
+
+Vérifions que ce YAML est syntaxiquement correct :  
+
+```shell
+kubectl apply -f np-allow-from-redis-and-frontend.yaml --dry-run=client
+```
+
+Pour info, une autre syntaxe aurait pu être (pas strictement identique en terme d'exactitude):
+```yaml
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: allow-from-redis-and-frontend
+spec:
+  policyTypes:
+  - Ingress
+  podSelector:
+    matchLabels:
+      app: redis
+      role: leader
+      tier: backend
+  ingress:
+  - from:
+    - podSelector:
+        matchExpressions:
+          - {key: app, operator: In, values: [guestbook,redis]} 
+```
+
+### Application de la Network Policy
+
+Appliquer cette politique
+```shell
+kubectl apply -f np-allow-from-redis-and-frontend.yaml
+```
+
+Vérifier qu'elle est bien appliquée
+```shell
+kubectl get netpol -A
+```
+
+```shell
+kubectl describe netpol/allow-from-redis-and-frontend -n default
+```
+Pour note , dans le cas alternatif d'écriture de la NP, on aurait :
+```
+% kubectl describe netpol
+Name:         allow-from-redis-and-frontend
+Namespace:    default
+Created on:   2022-09-28 12:02:13 +0200 CEST
+Labels:       <none>
+Annotations:  <none>
+Spec:
+  PodSelector:     app=redis,role=leader,tier=backend
+  Allowing ingress traffic:
+    To Port: <any> (traffic allowed to all ports)
+    From:
+      PodSelector: app in (guestbook,redis)
+  Not affecting egress traffic
+  Policy Types: Ingress
+```
+
+### Vérification
+
+Identifier sur quel Node tourne le `redis-leader` afin de déterminer le Pod cilium qui tourne sur ce même Node :
+
+```shell
+kubectl get pods -o wide -A
+```
+
+Un admin sophistiqué aurait directement executé :
+```shell
+kubectl get pods -o wide -ndefault -l role=leader
+kubectl get pods -o wide -nkube-system -l app.kubernetes.io/name=cilium-agent
+```
+
+Lancer `cilium monitor` sur le Pod Cilium dans une fenêtre séparée :
+```shell
+ kubectl exec -it cilium-xxxxx -n kube-system -- cilium monitor --type drop
+
+Press Ctrl-C to quit
+level=info msg="Initializing dissection cache..." subsys=monitor
+```
+Dans une autre fenêtre de console, vérifier que `redis-leader` n'est plus accessible en créeant un Pod `debug-blue` (dans un namespace différent):
+
+```shell
+kubectl create ns blue
+kubectl run debug-blue -it --rm --restart=Never --image=nicolaka/netshoot --namespace=blue
+debug-blue# nmap -p 6379 -P0 redis-leader.default.svc
+```
+
+Ce qui donne ceci dans la fenetre initiale :
+```
+xx drop (Policy denied) flow 0x0 to endpoint 1333, identity 56671->25124: 10.244.0.58:37754 -> 10.244.0.225:6379 tcp SYN
+xx drop (Policy denied) flow 0x0 to endpoint 1333, identity 56671->25124: 10.244.0.58:37756 -> 10.244.0.225:6379 tcp SYN
+xx drop (Policy denied) flow 0x0 to endpoint 1333, identity 7391->25124: 10.244.0.60:39208 -> 10.244.0.225:6379 tcp SYN
+xx drop (Policy denied) flow 0x6e59a6c7 to endpoint 1333, identity 7391->25124: 10.244.0.212:43320 -> 10.244.0.225:6379 tcp SYN
+^C
+Received an interrupt, disconnecting from monitor...
+```
+
+Vérifier que le svc `redis-leader` est bien accessible depuis le Pod `redis-follower`
+```shell
+kubectl exec -it redis-follower-xxxx -- redis-cli -h redis-leader.default.svc -p 6379
+```
