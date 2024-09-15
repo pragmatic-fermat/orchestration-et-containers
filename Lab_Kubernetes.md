@@ -158,13 +158,22 @@ La documentation des variables est ici : https://github.com/bitnami/charts/
 
 On peut construire un fichier de variable [values.yaml](/values.yaml) ainsi (cf doc https://github.com/bitnami/charts/tree/master/bitnami/wordpress ) : remplacer `<GRP>` par la valeur adéquate.
 
-**Une fois cela fait**, procédez :
+** Une fois cela fait**, procédez :
 
 ```bash
  helm install  my-release -f values.yaml bitnami/wordpress --version 18.1.30
 ```
+Visiter 
+- le site http://grp<GRP>.soat.work
+- la page d'admin http://grp<GRP>.soat.work/wp-admin
+- le login est "user" et le mot de passe est obtenu ainsi :
+```bash
+kubectl get secret --namespace default my-release-wordpress -o jsonpath="{.data.wordpress-password}" | base64 -d
+```
+- remarquez que le plugin Woprdpress Akismet est installé et activé, comme précisé dans ![values.yaml](/values.yaml).
 
- Dashboard Traefik :
+## Dashboard de l'Ingress Controler (Traeffik)
+ Consultons le dashboard `Traefik` :
 
 ```bash
 kubectl port-forward $(kubectl get pods --selector "app.kubernetes.io/name=traefik" --output=name | head -n 1) 9000:9000
@@ -172,17 +181,20 @@ kubectl port-forward $(kubectl get pods --selector "app.kubernetes.io/name=traef
 
 Puis navigation sur http://127.0.0.1:9000/dashboard/#/ 
 
+## Obtenir et déployer un certificat TLS avec `cert-manager`
+
 Créer cert-manager 
+
 ```bash
 kubectl apply --validate=false -f https://github.com/cert-manager/cert-manager/releases/download/v1.11.4/cert-manager.yaml 
 ```
 
-Créer un cluster-issuer  : 
+Créer un `cluster-issuer`  : 
 ```bash
 kubectl create -f cluster-issuer.yaml
 ```
 
-Modifier le `grp` dans [mycert.yaml](/mycert.yaml) puis créer un certificat : 
+Modifier le <GRP> dans [mycert.yaml](/mycert.yaml) puis créer un certificat : 
 ```bash
 kubectl create -f mycert.yaml
 ```
