@@ -1,2 +1,3 @@
 .DS_Store
-/html_data/*
+./html_data/*
+values.yaml

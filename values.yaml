@@ -1,4 +1,4 @@
-wordpressBlogName: "Test de Helm Chart Sept 2024"
+wordpressBlogName: "Mon test de Helm Chart"
 persistence:
   size: 3Gi
 service:

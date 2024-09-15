@@ -9,7 +9,9 @@
 
 ## K8s 101
 
-### Vérifier les outils
+### Vérifier les outils sur votre terminal
+
+A priori dans Code Spaces : 
 
 ```bash
 kubectl version
@@ -21,13 +23,12 @@ helm version
 L'animateur vous fournit les valeurs des variables `GRP` et `ENTROPY` :
 
 ```bash
-chmod a+x init.sh
 ./init.sh <GRP> <ENTROPY>
 ```
 
 ```bash
 kubectl cluster-info
-kubectl get nodes
+kubectl get nodes -o wide
 ```
 
 ### Creer un deploiement
@@ -40,7 +41,10 @@ kubectl create deployment hello-world --replicas=2 --image=stefanprodan/podinfo:
 kubectl get deploy/hello-world
 kubectl describe deployments hello-world
 kubectl get replicasets
+kubectl get pods -o wide --show-labels
 ```
+
+Tuer un pod avec `kubectl delete pod` pour constater qu'un nouveau est crée en remplacement.
 
 ### Scaler un deploiement
 ```bash
@@ -48,6 +52,7 @@ kubectl scale deploy/hello-world --replicas=5
 ```
 
 ### Exposer un deploiement
+
 ```bash
 kubectl expose deployment hello-world --type=LoadBalancer --name=my-service
 ```
@@ -55,8 +60,14 @@ kubectl expose deployment hello-world --type=LoadBalancer --name=my-service
 ```bash
 kubectl get svc
 ```
+Visiter l'@IP publique (sur le port TCP/9898)
 
+Vérifions que le Load-balancing fonctionne :
+```bash
+ for i in {1..100} ; do curl -s @IP_pub_svc:9898 | jq ".hostname" ; done | sort | uniq -c
+```
 ## Changer l'image d'un déploiement
+
 ```bash
 kubectl set image deployment/hello-world podinfo=stefanprodan/podinfo:5.2.1
 ```
@@ -69,10 +80,17 @@ kubectl rollout status deploy/hello-world
 kubectl rollout history deploy/hello-world
 ```
 
-## Deployer une application
+## Deployer une application stateful avec pv/pvc
 
+L'application est composée :
+- d'un front-end web
+- d'une base de donénes MySQL
+- d'un `secret` pour le mdp de la DB
+- de `persistent volumes` pour le stockage
+- d'un service CLusterIP (non publié en `LoadBalancer` ou `NodePort`)
 
 Creation d'un secret :
+
 ```bash
 kubectl create secret generic mysql-pass --from-literal=password=monMDP
 kubectl get secret
@@ -91,17 +109,28 @@ kubectl get pv
 Déployer la partie frontend :
 ```bash
 kubectl apply -f https://kubernetes.io/examples/application/wordpress/wordpress-deployment.yaml 
+kubectl get pods
+kubectl get svc
+kubectl get pv
 ```
+
+Testons :
+- visiter l'application
+- effacer le `pod` wordpress-mysql
+- "*drainer*" le `Node` (avec `kubectl drain --delete-emptydir-data`) qui porte le `pod` wordpress-mysql
+
 
 Cleanup :
 ```bash
 kubectl delete --all deployment
 kubectl delete --all svc
+kubectl delete --all pvc
 kubectl delete --all pv
+kubectl delete --all secret
 ```
 
 
-## Déployer avec Helm
+## Déployer avec `Helm` un `Ingress`
 
 Installer un ingress-controler traefik via Helm :
 
@@ -110,10 +139,14 @@ helm repo add traefik https://traefik.github.io/charts
 helm repo update
 helm install traefik traefik/traefik
 ```
+Demander à l'animateur de mettre à jour le record DNS  grp<GRP>.soat.work avec l’IP du LB nouvellement crée
 
-Mettre à jour le record DNS  k8s-<GRP>.soat.work avec l’IP du LB crée
+**Une fois cela fait**, si vous visiter http://grp<GRP>.soat.work , vous obtiendrez une page 404 (normal)
+
+## Déployer le chart Wordpress avec `Helm`
 
 Installer l'application avec Helm :
+
 ```bash
 helm version
 helm repo add bitnami https://charts.bitnami.com/bitnami
@@ -124,6 +157,9 @@ helm search repo wordpress
 La documentation des variables est ici : https://github.com/bitnami/charts/ 
 
 On peut construire un fichier de variable [values.yaml](/values.yaml) ainsi (cf doc https://github.com/bitnami/charts/tree/master/bitnami/wordpress ) : remplacer `<GRP>` par la valeur adéquate.
+
+**Une fois cela fait**, procédez :
+
 ```bash
  helm install  my-release -f values.yaml bitnami/wordpress --version 18.1.30
 ```
