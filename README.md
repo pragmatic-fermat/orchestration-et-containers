@@ -1,7 +1,7 @@
 
 Contenu
 
-- [Setup](/Setup_Github.md)
+- [Setup Github Code Spaces (optionnel)](/Setup_Github.md)
 
 - [Lab Docker](/Lab_Docker.md)
 

@@ -22,9 +22,9 @@ A l'intérieur du répo https://github.com/pragmatic-fermat/orchestration-et-con
 ![](/img/github3.png)
 
 Prenez le temps de vous familiariser avec l'interface  :  
-* éditeur de texte (en haut),
-* terminal (en bas),
-* arborescence de ficher à gauche, etc.
+- 1 : arborescence de fichiers à gauche,  
+- 2 :  éditeur de texte (en haut),
+- 3 : terminal bash (en bas),
 
 Si vous tentez de faire un copier/coller, vous devrez répondre "Oui" à cette invitation :
 ![img](/img/github2.png)
