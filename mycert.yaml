@@ -1,14 +1,13 @@
-cat mycert.yaml 
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: grp<GRP>.soat.work
+  name: grp0.soat.work
   namespace: default
 spec:
-  commonName: grp<GRP>.soat.work
+  commonName: grp0.soat.work
   secretName: scw-k8s-cert
   dnsNames:
-    - grp<GRP>.soat.work
+    - grp0.soat.work
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer

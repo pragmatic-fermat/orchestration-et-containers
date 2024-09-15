@@ -137,8 +137,14 @@ Installer un ingress-controler traefik via Helm :
 ```bash
 helm repo add traefik https://traefik.github.io/charts
 helm repo update
-helm install traefik traefik/traefik
+helm install traefik traefik/traefik --set ingressRoute.dashboard.enabled=true
 ```
+
+On peut visualiser l'installation du chart ainsi :
+```bash
+helm ls
+```
+
 Demander à l'animateur de mettre à jour le record DNS  grp<GRP>.soat.work avec l’IP du LB nouvellement crée
 
 **Une fois cela fait**, si vous visiter http://grp<GRP>.soat.work , vous obtiendrez une page 404 (normal)
@@ -199,16 +205,20 @@ Modifier le <GRP> dans [mycert.yaml](/mycert.yaml) puis créer un certificat :
 kubectl create -f mycert.yaml
 ```
 
-Au bout d’un moment 
+Au bout d’un moment  :
 ```bash
-+ kubectl get certificate
-NAME                    READY   SECRET                  AGE
-k8s-grp.soat.work   True    k8s-grp.soat.work   6m1s
+kubectl get certificate
+NAME                 READY   SECRET               AGE
+grp0.soat.work       True    scw-k8s-cert         11s
+grp0.soat.work-tls   True    grp0.soat.work-tls   3m46s
 ```
+Visiter https://grp<GRP>.soat.work et constater le certificat TLS.
+
 
 ## Utiliser ArgoCD
 
-Installons `argocd` :
+Installons la CLI d'`argocd` :
+
 ```bash
 VERSION=$(curl -L -s https://raw.githubusercontent.com/argoproj/argo-cd/stable/VERSION)
 curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/download/v$VERSION/argocd-linux-amd64
@@ -216,6 +226,7 @@ sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
 rm argocd-linux-amd64
 ```
 
+Puis déployons le
 ```bash
 kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
@@ -236,18 +247,17 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 argocd login localhost:8080
 ```
 
-Ajout d’une application WEB en REPO:
+Ajout d’une application Web en Repo:
 
 ```bash
 argocd app create improvedguestbook --repo https://github.com/srnfr/improved-guestbook-k8s-example.git --path guestbook --dest-server https://kubernetes.default.svc --dest-namespace default
 
-argocd app patch improvedguestbook --patch '{"spec": { "source": { "targetRevision": "redis-sentinel" } }}' --type merge
 ```
 
-Ajout d’une application REDIS en HELM
+Ajout d’une application `Redis` en `Helm` :
 
 ```bash
-​​argocd app create redis --project default \
+​argocd app create redis --project default \
   --repo https://charts.bitnami.com/bitnami  \
   --helm-chart redis \
   --dest-server https://kubernetes.default.svc \
