@@ -6,7 +6,7 @@ service:
 ingress:
   enabled: true
   ingressClassName: traefik
-  hostname: grp0.soat.work
+  hostname: grp<GRP>.soat.work
   tls: true
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
