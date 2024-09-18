@@ -81,6 +81,19 @@ kubectl rollout status deploy/hello-world
 kubectl rollout history deploy/hello-world
 ```
 
+## Implementer un Readyness check
+
+Suivant ![la doc de podinfo](https://github.com/stefanprodan/podinfo), pour désactiver la `readyness`, se connecter dans un Pod et jouer
+```bash
+curl http://127.0.0.1/readyz/disable
+```
+
+Patcher le déploiement
+
+```bash
+kubectl patch deployment hello-world --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/readinessProbe", "value": {"exec": {"command": ["podcli", "check", "http", "localhost:9898/readyz"]}, "failureThreshold": 3, "initialDelaySeconds": 3, "periodSeconds": 5, "successThreshold": 1, "timeoutSeconds": 3}}]'
+```
+
 ## Deployer une application stateful avec pv/pvc
 
 L'application est composée :
