@@ -66,7 +66,7 @@ Visiter l'@IP publique (sur le port TCP/9898)
 Vérifions que le Load-balancing fonctionne :
 ```bash
 IP_PUB=$(kubectl get service my-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-for i in {1..100} ; do curl -s $IP_pub:9898 | jq ".hostname" ; done | sort | uniq -c
+for i in {1..100} ; do curl -s $IP_PUB:9898 | jq ".hostname" ; done | sort | uniq -c
 ```
 ## Changer l'image d'un déploiement
 
