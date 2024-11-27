@@ -3,7 +3,7 @@
 
 - [K8s 101](#k8s-101)
 - [Deployer une application en yaml](#deployer-une-application-stateful-avec-pv/pvc)
-- [Déployer avec Helm, avec ingress et certificat TLS](#deployer-une-appli-en-https)
+- [Déployer avec Helm, avec ingress et certificat TLS](#déployer-une-appli-en-https)
 - [Mettre en place un CD avec ArgoCD](#utiliser-argocd)
 - [Cloisonner et Filtrer avec les Network Policies](#mettre-en-place-un-network-policy)
 
@@ -66,6 +66,7 @@ Visiter l'@IP publique (sur le port TCP/9898)
 Vérifions que le Load-balancing fonctionne :
 ```bash
 IP_PUB=$(kubectl get service my-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
 for i in {1..100} ; do curl -s $IP_PUB:9898 | jq ".hostname" ; done | sort | uniq -c
 ```
 ### Changer l'image d'un déploiement
@@ -84,7 +85,8 @@ kubectl rollout history deploy/hello-world
 
 ### Implementer un Readyness check
 
-Suivant [la doc de podinfo](https://github.com/stefanprodan/podinfo) , pour désactiver la `readyness`, se connecter dans un Pod et jouer
+Suivant [la doc de podinfo](https://github.com/stefanprodan/podinfo) , pour désactiver la `readyness`, se connecter dans un Pod et jouer :
+
 ```bash
 curl http://127.0.0.1/readyz/disable
 ```
@@ -99,7 +101,7 @@ kubectl patch deployment hello-world --type='json' -p='[{"op": "add", "path": "/
 
 L'application est composée :
 - d'un front-end web
-- d'une base de donénes MySQL
+- d'une base de données MySQL
 - d'un `secret` pour le mdp de la DB
 - de `persistent volumes` pour le stockage
 - d'un service CLusterIP (non publié en `LoadBalancer` ou `NodePort`)
@@ -144,11 +146,11 @@ kubectl delete --all pv
 kubectl delete --all secret
 ```
 
-## Deployer une appli en HTTPS
+## Déployer une appli en HTTPS
 
-### Déployer avec `Helm` un `Ingress`
+### Déployer  un Ingress avec helm
 
-Installer un ingress-controler traefik via Helm :
+Installer un ingress-controler traefik avec helm :
 
 ```bash
 helm repo add traefik https://traefik.github.io/charts
@@ -160,10 +162,14 @@ On peut visualiser l'installation du chart ainsi :
 ```bash
 helm ls
 ```
+L'adresse IP publique du LoadBalancer associé au service traefik est visible :
+```bash
+kubectl get svc traefik
+```
 
-Demander à l'animateur de mettre à jour le record DNS  grp<GRP>.soat.work avec l’IP du LB nouvellement crée
+Demander à l'animateur de mettre à jour le record DNS  grp${GRP}.soat.work avec l’IP du LB nouvellement crée
 
-**Une fois cela fait**, si vous visiter (http://grp<GRP>.soat.work) , vous obtiendrez une page 404 (normal)
+**Une fois cela fait** , si vous visitez http://grp${GRP}.soat.work , vous obtiendrez une page 404 (normal)
 
 ### Déployer le chart Wordpress avec `Helm`
 
@@ -176,25 +182,25 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 helm search repo wordpress
 ```
 
-La documentation des variables est ici : https://github.com/bitnami/charts/ 
+La documentation des variables est accessible [ici](https://github.com/bitnami/charts/) 
 
 On peut construire un fichier de variable [values.yaml](/values.yaml) ainsi (cf doc https://github.com/bitnami/charts/tree/master/bitnami/wordpress ) : remplacer `<GRP>` par la valeur adéquate.
 
-** Une fois cela fait**, procédez :
+**Une fois cela fait** , procédez :
 
 ```bash
  helm install  my-release -f values.yaml bitnami/wordpress --version 18.1.30
 ```
 Visiter 
-- le site http://grp$GRP.soat.work
-- la page d'admin http://grp$GRP.soat.work/wp-admin
+- le site http://grp${GRP}.soat.work
+- la page d'admin http://grp${GRP}.soat.work/wp-admin
 - le login est "user" et le mot de passe est obtenu ainsi :
 ```bash
 kubectl get secret --namespace default my-release-wordpress -o jsonpath="{.data.wordpress-password}" | base64 -d
 ```
 - remarquez que le plugin Woprdpress Akismet est installé et activé, comme précisé dans [values.yaml](/values.yaml).
 
-### Dashboard de l'Ingress Controler (Traeffik)
+### Dashboard de l'Ingress Controler (Traefik)
  Consultons le dashboard `Traefik` :
 
 ```bash
@@ -216,7 +222,7 @@ Créer un `cluster-issuer`  :
 kubectl create -f cluster-issuer.yaml
 ```
 
-Modifier le <GRP> dans [mycert.yaml](/mycert.yaml) puis créer un certificat : 
+Modifier le ${GRP} dans [mycert.yaml](/mycert.yaml) puis créer un certificat : 
 ```bash
 kubectl create -f mycert.yaml
 ```
@@ -228,7 +234,7 @@ NAME                 READY   SECRET               AGE
 grp0.soat.work       True    scw-k8s-cert         11s
 grp0.soat.work-tls   True    grp0.soat.work-tls   3m46s
 ```
-Visiter https://grp<GRP>.soat.work et constater le certificat TLS.
+Visiter https://grp${GRP}.soat.work et constater le certificat TLS.
 
 
 ## Utiliser ArgoCD
@@ -242,7 +248,7 @@ sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
 rm argocd-linux-amd64
 ```
 
-Puis déployons le
+Puis déployons ArgoCD dans le cluster 
 ```bash
 kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
@@ -252,9 +258,10 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443 > /dev/null 2>&1 &
 
 Visiter http://localhost:8080
 
-Connexion
-Login : admin
-Pwd :
+Connexion :
+- Login : admin
+- Pwd :
+
 ```bash
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 ```
@@ -308,18 +315,19 @@ kubectl apply -f redis-leader-deployment.yaml
 ```shell
 kubectl apply -f redis-leader-service.yaml
 ```
-Puis les redis-follower 
 
-Déployer le deploiment redis-follower manquant :
+Puis les redis-follower :
+
+-  le deploiement redis-follower manquant
 ```shell
 kubectl apply -f redis-follower-deployment.yaml
 ```
 
-.. et son service
+- et son service
 
 ```shell
 kubectl apply -f redis-follower-service.yaml
-
+```
 
 Puis le frontend :
 
@@ -339,7 +347,7 @@ kubectl apply -f frontend-service.yaml
 
 
 
-### Redaction d'une NetPol
+### Redaction d'une NetPolicy
 
 Créez un Network Policy (NP) en ingress qui :
 * s'applique au composant `redis-leader` 
