@@ -2,8 +2,8 @@
 
 
 - [K8s 101](#k8s-101)
-- [Deployer une application en yaml](#deployer-une-application)
-- [Déployer avec Helm, avec ingress et certificat TLS](#déployer-avec-helm)
+- [Deployer une application en yaml](#deployer-une-application-stateful-avec-pv/pvc)
+- [Déployer avec Helm, avec ingress et certificat TLS](#deployer-une-appli-en-https)
 - [Mettre en place un CD avec ArgoCD](#utiliser-argocd)
 - [Cloisonner et Filtrer avec les Network Policies](#mettre-en-place-un-network-policy)
 
@@ -68,7 +68,7 @@ Vérifions que le Load-balancing fonctionne :
 IP_PUB=$(kubectl get service my-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 for i in {1..100} ; do curl -s $IP_PUB:9898 | jq ".hostname" ; done | sort | uniq -c
 ```
-## Changer l'image d'un déploiement
+### Changer l'image d'un déploiement
 
 ```bash
 kubectl set image deployment/hello-world podinfo=stefanprodan/podinfo:5.2.1
@@ -82,9 +82,9 @@ kubectl rollout status deploy/hello-world
 kubectl rollout history deploy/hello-world
 ```
 
-## Implementer un Readyness check
+### Implementer un Readyness check
 
-Suivant ![la doc de podinfo](https://github.com/stefanprodan/podinfo), pour désactiver la `readyness`, se connecter dans un Pod et jouer
+Suivant [la doc de podinfo](https://github.com/stefanprodan/podinfo) , pour désactiver la `readyness`, se connecter dans un Pod et jouer
 ```bash
 curl http://127.0.0.1/readyz/disable
 ```
@@ -144,8 +144,9 @@ kubectl delete --all pv
 kubectl delete --all secret
 ```
 
+## Deployer une appli en HTTPS
 
-## Déployer avec `Helm` un `Ingress`
+### Déployer avec `Helm` un `Ingress`
 
 Installer un ingress-controler traefik via Helm :
 
@@ -162,9 +163,9 @@ helm ls
 
 Demander à l'animateur de mettre à jour le record DNS  grp<GRP>.soat.work avec l’IP du LB nouvellement crée
 
-**Une fois cela fait**, si vous visiter http://grp<GRP>.soat.work , vous obtiendrez une page 404 (normal)
+**Une fois cela fait**, si vous visiter (http://grp<GRP>.soat.work) , vous obtiendrez une page 404 (normal)
 
-## Déployer le chart Wordpress avec `Helm`
+### Déployer le chart Wordpress avec `Helm`
 
 Installer l'application avec Helm :
 
@@ -185,15 +186,15 @@ On peut construire un fichier de variable [values.yaml](/values.yaml) ainsi (cf 
  helm install  my-release -f values.yaml bitnami/wordpress --version 18.1.30
 ```
 Visiter 
-- le site http://grp<GRP>.soat.work
-- la page d'admin http://grp<GRP>.soat.work/wp-admin
+- le site http://grp$GRP.soat.work
+- la page d'admin http://grp$GRP.soat.work/wp-admin
 - le login est "user" et le mot de passe est obtenu ainsi :
 ```bash
 kubectl get secret --namespace default my-release-wordpress -o jsonpath="{.data.wordpress-password}" | base64 -d
 ```
-- remarquez que le plugin Woprdpress Akismet est installé et activé, comme précisé dans ![values.yaml](/values.yaml).
+- remarquez que le plugin Woprdpress Akismet est installé et activé, comme précisé dans [values.yaml](/values.yaml).
 
-## Dashboard de l'Ingress Controler (Traeffik)
+### Dashboard de l'Ingress Controler (Traeffik)
  Consultons le dashboard `Traefik` :
 
 ```bash
@@ -202,7 +203,7 @@ kubectl port-forward $(kubectl get pods --selector "app.kubernetes.io/name=traef
 
 Puis navigation sur http://127.0.0.1:9000/dashboard/#/ 
 
-## Obtenir et déployer un certificat TLS avec `cert-manager`
+### Obtenir et déployer un certificat TLS avec `cert-manager`
 
 Créer cert-manager 
 
