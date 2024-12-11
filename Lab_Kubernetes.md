@@ -212,7 +212,7 @@ Puis navigation sur http://127.0.0.1:9000/dashboard/#/
 
 ### Obtenir et déployer un certificat TLS avec `cert-manager`
 
-Créer cert-manager 
+Créer `cert-manager`
 
 ```bash
 kubectl apply --validate=false -f https://github.com/cert-manager/cert-manager/releases/download/v1.11.4/cert-manager.yaml 
@@ -275,7 +275,6 @@ Ajout d’une application Web en Repo:
 
 ```bash
 argocd app create improvedguestbook --repo https://github.com/srnfr/improved-guestbook-k8s-example.git --path guestbook --dest-server https://kubernetes.default.svc --dest-namespace default
-
 ```
 
 Ajout d’une application `Redis` en `Helm` :
