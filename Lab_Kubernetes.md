@@ -6,6 +6,7 @@
 - [Déployer avec Helm, avec ingress et certificat TLS](#déployer-une-appli-en-https)
 - [Mettre en place un CD avec ArgoCD](#utiliser-argocd)
 - [Cloisonner et Filtrer avec les Network Policies](#mettre-en-place-un-network-policy)
+- [Service Mesh with Linkerd](#service-mesh-linkerd)
 
 
 ## K8s 101
@@ -492,4 +493,63 @@ Received an interrupt, disconnecting from monitor...
 Vérifier que le svc `redis-leader` est bien accessible depuis le Pod `redis-follower`
 ```shell
 kubectl exec -it redis-follower-xxxx -- redis-cli -h redis-leader.default.svc -p 6379
+```
+
+## Service Mesh Linkerd
+
+### Installation
+```
+curl -sL https://run.linkerd.io/install-edge
+ | sh
+export PATH=$PATH:$HOME/.linkerd2/bin
+linkerd version
+linkerd check --pre
+linkerd install --crds | kubectl apply -f -
+linkerd install | kubectl apply -f -
+linkerd check
+linkerd viz install | kubectl apply -f -
+linkerd check
+kubectl -n linkerd get deploy
+linkerd viz dashboard &
+```
+
+Puis
+```
+kubectl apply -f https://run.linkerd.io/emojivoto.yml
+kubectl -n emojivoto  get all
+```
+
+### Visite du site web
+
+```
+kubectl -n emojivoto port-forward svc/web-svc 8181:80
+```
+Maintenant injection (de sidecar proxies) par Linkerd :
+```
+kubectl get -n emojivoto deploy -o yaml \
+  | linkerd inject - \
+  | kubectl apply -f -
+```
+
+Puis
+```
+linkerd -n emojivoto check --proxy
+```
+
+Débugger dans (http://127.0.0.1:58756/namespaces/emojivoto)
+ Namespace > emojivoto > deployment/web pourquoi “Poop” génère des échecs.
+
+```
+ kubectl describe po/web-66c469c7b9-lzq9v -nemojivoto
+```
+Permet de voir 2 containers dans le même pod
+
+```
+kubectl logs po/web-66c469c7b9-lzq9v web-svc -nemojivoto
+```
+
+Permet de voir les logs du container web-svc dans le pod web
+### Cleanup
+```
+linkerd install --ignore-cluster | kubectl delete -f -
 ```
