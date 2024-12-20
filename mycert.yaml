@@ -5,7 +5,7 @@ metadata:
   namespace: default
 spec:
   commonName: grp0.soat.work
-  secretName: scw-k8s-cert
+  secretName: grp0.soat.work-tls 
   dnsNames:
     - grp0.soat.work
   issuerRef:
