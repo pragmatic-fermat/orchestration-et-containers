@@ -189,7 +189,7 @@ On peut construire un fichier de variable [values.yaml](/values.yaml) ainsi (cf 
 ```bash
 helm install  my-release -f values.yaml \
  --version 18.1.30 \
- --set image.repository=bitnamylegacy/wordpress \
+ --set image.repository=bitnamilegacy/wordpress \
  --set volumePermissions.image.repository=bitnamilegacy/os-shell \
  --set metrics.image.repository=bitnamilegacy/apache-exporter \
  --set global.security.allowInsecureImages=true \
