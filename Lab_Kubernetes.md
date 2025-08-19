@@ -178,12 +178,9 @@ Installer l'application avec Helm :
 
 ```bash
 helm version
-helm repo add bitnami https://charts.bitnami.com/bitnami
-
-helm search repo wordpress
 ```
 
-La documentation des variables est accessible [ici](https://github.com/bitnami/charts/) 
+La documentation du chart Helm Wordpress de Bitnami (y compris ses variables) est accessible [ici](https://github.com/bitnami/charts/) 
 
 On peut construire un fichier de variable [values.yaml](/values.yaml) ainsi (cf doc https://github.com/bitnami/charts/tree/master/bitnami/wordpress ) : remplacer `<GRP>` par la valeur adéquate.
 
