@@ -190,7 +190,7 @@ On peut construire un fichier de variable [values.yaml](/values.yaml) ainsi (cf 
 **Une fois cela fait** , procédez :
 
 ```bash
- helm install  my-release -f values.yaml bitnami/wordpress --version 18.1.30
+ helm install  my-release -f values.yaml oci://registry-1.docker.io/bitnamicharts/wordpress --version 18.1.30
 ```
 Visiter 
 - le site http://grp${GRP}.soat.work
