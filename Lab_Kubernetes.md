@@ -209,10 +209,10 @@ kubectl get secret --namespace default my-release-wordpress -o jsonpath="{.data.
  Consultons le dashboard `Traefik` :
 
 ```bash
-kubectl port-forward $(kubectl get pods --selector "app.kubernetes.io/name=traefik" --output=name | head -n 1) 9000:9000
+kubectl port-forward $(kubectl get pods --selector "app.kubernetes.io/name=traefik" --output=name | head -n 1) 8080:8080
 ```
 
-Puis navigation sur http://127.0.0.1:9000/dashboard/#/ 
+Puis navigation sur http://127.0.0.1:8080/dashboard/#/ 
 
 ### Obtenir et déployer un certificat TLS avec `cert-manager`
 
