@@ -224,10 +224,11 @@ kubectl apply --validate=false -f https://github.com/cert-manager/cert-manager/r
 
 Créer un `cluster-issuer`  : 
 ```bash
+wget https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/cluster-issuer.yaml
 kubectl create -f cluster-issuer.yaml
 ```
 
-Modifier le ${GRP} dans [mycert.yaml](/mycert.yaml) puis créer un certificat : 
+Modifier le ${GRP} dans [mycert.yaml](https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/mycert.yaml) puis créer un certificat : 
 ```bash
 kubectl create -f mycert.yaml
 ```
@@ -283,12 +284,14 @@ argocd app create improvedguestbook --repo https://github.com/srnfr/improved-gue
 
 Ajout d’une application `Redis` en `Helm` :
 
-```bash
-​argocd app create redis --project default \
+```
+argocd app create redis --project default \
   --repo https://charts.bitnami.com/bitnami  \
   --helm-chart redis \
   --dest-server https://kubernetes.default.svc \
-  --dest-namespace default --revision '18.1.6' --values-literal-file 'https://raw.githubusercontent.com/srnfr/kubernetes-examples/frontend-with-env/guestbook/redis-values.yaml'
+  --dest-namespace default \
+  --revision '18.1.6' \
+  --values-literal-file 'https://raw.githubusercontent.com/srnfr/kubernetes-examples/frontend-with-env/guestbook/redis-values.yaml'
 ```
 
 Application des évolutions
