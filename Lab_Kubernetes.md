@@ -285,8 +285,12 @@ argocd app create improvedguestbook --repo https://github.com/srnfr/improved-gue
 Ajout d’une application `Redis` en `Helm` :
 
 ```
+argocd repo add registry-1.docker.io/bitnamicharts \
+  --type helm --enable-oci \
+  --name bitnami-oci
+  
 argocd app create redis --project default \
-  --repo https://charts.bitnami.com/bitnami  \
+  --repo registry-1.docker.io/bitnamicharts \
   --helm-chart redis \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace default \
