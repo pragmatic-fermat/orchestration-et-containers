@@ -6,7 +6,7 @@ spec:
   parentRefs:
   - name: cilium-gateway-http
   hostnames: 
-  - FQDN
+  - "FQDN"
   rules:
   - matches:
     - path:
