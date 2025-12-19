@@ -576,18 +576,29 @@ Déployons une Gateway
 kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/do-cilium-gateway.yml
 ```
 
-Déployons une route
+Nous obtenons l'IP Publique et le nom DNS en nip.io  :
 ```
-kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/do-httproute.yaml
+IPPUB=${kubectl get svc  cilium-gateway-cilium-gateway-http  -o jsonpath='{.status.loadBalancer.ingress[0].ip}'}
+FQDN="${IPPUB}.nip.io"
+echo $FQDN
+```
+
+Déployons une route en insérant le FQDN :
+```
+curl -s https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/do-httproute.yaml | sed "s/FQDN/${FQDN}/" | kubectl apply -f -
 ```
 
 Vérifions
 ```
-curl --fail -s http://httptest.dolearn.xyz/details/1 | jq
+kubectl get httproute
 ```
-
+Puis 
 ```
-curl -v -H 'magic: foo' http://httptest.dolearn.xyz\?great\=example
+curl --fail -s http://${FQDN}/details/1 | jq
+```
+Et
+```
+curl -v -H 'magic: foo' http://${FQDN}\?great\=example
 ```
 
 ### Cleanup
