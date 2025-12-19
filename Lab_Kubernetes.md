@@ -561,6 +561,35 @@ kubectl logs po/web-66c469c7b9-lzq9v web-svc -nemojivoto
 ```
 
 Permet de voir les logs du container web-svc dans le pod web
+
+## Gateway API
+
+Chez DigitalOcean les CRD Gateway API sont déjà installés (avec Cillium)
+
+Déployons une application demo
+```
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
+```
+
+Déployons une Gateway
+```
+kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/do-cilium-gateway.yml
+```
+
+Déployons une route
+```
+kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/do-httproute.yaml
+```
+
+Vérifions
+```
+curl --fail -s http://httptest.dolearn.xyz/details/1 | jq
+```
+
+```
+curl -v -H 'magic: foo' http://httptest.dolearn.xyz\?great\=example
+```
+
 ### Cleanup
 ```
 linkerd install --ignore-cluster | kubectl delete -f -
