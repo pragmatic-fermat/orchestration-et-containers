@@ -11,3 +11,9 @@ spec:
     allowedRoutes:
       namespaces:
         from: Same
+  - protocol: HTTPS
+    port: 443
+    name: web-gw-https
+    allowedRoutes:
+      namespaces:
+        from: Same
