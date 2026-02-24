@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: bookinfo-gw-cert
+  namespace: default
+spec:
+  secretName: bookinfo-gw-tls
+  issuerRef:
+    name: letsencrypt-gateway
+    kind: ClusterIssuer
+  dnsNames:
+  - FQDN
