@@ -7,7 +7,7 @@
 - [Mettre en place un CD avec ArgoCD](#utiliser-argocd)
 - [Cloisonner et Filtrer avec les Network Policies](#mettre-en-place-un-network-policy)
 - [Service Mesh with Linkerd](#service-mesh-linkerd)
-
+- [Gateway API](#gateway-api)
 
 ## K8s 101
 
@@ -599,6 +599,20 @@ curl --fail -s http://${FQDN}/details/1 | jq
 Et
 ```
 curl -v -H 'magic: foo' http://${FQDN}\?great\=example
+```
+
+Ajoutons maintenant le certificat
+```
+kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/cluster-issuer-gateway.yaml
+curl -s https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/certificate-bookinfo.yaml | sed "s/FQDN/${FQDN}/" | kubectl apply -f -
+```
+
+Vérifions
+```
+kubectl get certificate -n default
+kubectl describe certificate bookinfo-gw-cert -n default
+kubectl get secret bookinfo-gw-tls -n default
+kubectl get httproute -n default
 ```
 
 ### Cleanup
