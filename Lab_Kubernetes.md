@@ -183,7 +183,6 @@ GRP=X
 et instancier une API Gateway
 
 ```bash
-kubectl create ns gateway
 curl -s https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/gateway-api.yaml | sed "s/GRP/$GRP/" | kubectl apply -f -
 ```
 
@@ -258,7 +257,9 @@ Puis navigation sur http://127.0.0.1:8282/dashboard/#/
 Créer `cert-manager`
 
 ```bash
-kubectl apply --validate=false -f https://github.com/cert-manager/cert-manager/releases/download/v1.11.4/cert-manager.yaml 
+VER="1.11.4"
+VER="1.19.4"
+kubectl apply --validate=false -f https://github.com/cert-manager/cert-manager/releases/download/v${VER}/cert-manager.yaml 
 ```
 
 Créer un `cluster-issuer`  : 
