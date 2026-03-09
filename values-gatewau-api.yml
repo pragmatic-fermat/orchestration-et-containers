@@ -1,0 +1,24 @@
+wordpressBlogName: "Mon test de Helm Chart"
+persistence:
+  size: 3Gi
+service:
+  type: ClusterIP
+  
+ingress:
+  enabled: false
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: web-gateway
+      namespace: gateway
+  hostnames:
+    - grp<GRP>.soat.work
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+            
+wordpressPlugins: 
+  - akismet
