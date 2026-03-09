@@ -11,7 +11,7 @@ httpRoute:
   enabled: true
   parentRefs:
     - name: web-gateway
-      namespace: gateway
+      namespace: default
   hostnames:
     - grpGRP.soat.work
   rules:

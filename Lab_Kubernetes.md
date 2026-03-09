@@ -202,23 +202,30 @@ On peut construire un fichier de variable [values.yaml](/values.yaml) ainsi (cf 
 **Une fois cela fait** , procédez :
 
 Si vous utilisez Gateway API 
+
 ```bash
+rm -f values.yaml
 curl -s https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/values-gateway-api.yaml -o values.yaml
 ```
 
 *OU* si vous utilisez Nginx Ingress 
+
 ```bash
+rm -f values.yaml
 curl -s https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/values-gateway-api.yaml -o values.yaml
 ```
 
 Pour configure le bon GRP :
+
 ```bash
 sed -i "s/GRP/$GRP/" values.yaml
 ```
 
 ```bash
+VER="18.1.30"
+VER="29.2.0"
 helm install my-release -f values.yaml \
- --version 18.1.30 \
+ --version $VER \
  --set image.repository=bitnamilegacy/wordpress \
  --set volumePermissions.image.repository=bitnamilegacy/os-shell \
  --set metrics.image.repository=bitnamilegacy/apache-exporter \

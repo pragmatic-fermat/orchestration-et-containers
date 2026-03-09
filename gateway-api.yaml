@@ -2,7 +2,7 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: web-gateway
-  namespace: gateway
+  namespace: default
 spec:
   ## DO utilise cilium
   gatewayClassName: cilium
@@ -20,4 +20,3 @@ spec:
         certificateRefs:
         - kind: Secret
           name: grpGRP.soat.work-tls
-          
