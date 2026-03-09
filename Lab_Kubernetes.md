@@ -201,6 +201,21 @@ On peut construire un fichier de variable [values.yaml](/values.yaml) ainsi (cf 
 
 **Une fois cela fait** , procédez :
 
+Si vous utilisez Gateway API 
+```bash
+curl -s https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/values-gateway-api.yaml -o values.yaml
+```
+
+*OU* si vous utilisez Nginx Ingress 
+```bash
+curl -s https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/values-gateway-api.yaml -o values.yaml
+```
+
+Pour configure le bon GRP :
+```bash
+sed -i "s/GRP/$GRP/" values.yaml
+```
+
 ```bash
 helm install my-release -f values.yaml \
  --version 18.1.30 \

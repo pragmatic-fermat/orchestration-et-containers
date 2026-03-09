@@ -13,7 +13,7 @@ httpRoute:
     - name: web-gateway
       namespace: gateway
   hostnames:
-    - grp<GRP>.soat.work
+    - grpGRP.soat.work
   rules:
     - matches:
         - path:
