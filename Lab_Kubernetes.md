@@ -174,10 +174,17 @@ Demander à l'animateur de mettre à jour le record DNS  grp${GRP}.soat.work ave
 
 ## Déployer une API Gateway avec helm (new)
 
-Préciser votre numéro de groupe dans la variable GRP et instancier une API Gateway
+Préciser votre numéro de groupe dans la variable GRP 
+
 ```bash
-GRP=0
-wget | sed 's/GRP/$GRP/' kubectl apply -f -
+GRP=X
+```
+
+et instancier une API Gateway
+
+```bash
+kubectl create ns gateway
+curl -s https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/gateway-api.yaml | sed "s/GRP/$GRP/" | kubectl apply -f -
 ```
 
 ### Déployer le chart Wordpress avec `Helm`
