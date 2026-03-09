@@ -1,0 +1,22 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: web-gateway
+  namespace: gateway
+spec:
+  ## DO utilise cilium
+  gatewayClassName: cilium
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      hostname: grpGRP.soat.work
+    - name: https
+      port: 443
+      protocol: HTTPS
+      hostname: grpGRP.soat.work
+      tls:
+        mode: Terminate
+        certificateRefs:
+        - kind: Secret
+          name: grpGRP.soat.work-tls

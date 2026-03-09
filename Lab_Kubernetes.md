@@ -3,7 +3,7 @@
 
 - [K8s 101](#k8s-101)
 - [Deployer une application en yaml](#deployer-une-application-stateful-avec-pv/pvc)
-- [Déployer avec Helm, avec ingress et certificat TLS](#déployer-une-appli-en-https)
+- [Déployer avec Helm, avec ingress/api gateway et certificat TLS](#déployer-une-appli-en-https)
 - [Mettre en place un CD avec ArgoCD](#utiliser-argocd)
 - [Cloisonner et Filtrer avec les Network Policies](#mettre-en-place-un-network-policy)
 - [Service Mesh with Linkerd](#service-mesh-linkerd)
@@ -149,7 +149,7 @@ kubectl delete --all secret
 
 ## Déployer une appli en HTTPS
 
-### Déployer  un Ingress avec helm
+### Déployer  un Ingress avec helm (obsolète)
 
 Installer un ingress-controler traefik avec helm :
 
@@ -171,6 +171,14 @@ kubectl get svc traefik
 Demander à l'animateur de mettre à jour le record DNS  grp${GRP}.soat.work avec l’IP du LB nouvellement crée
 
 **Une fois cela fait** , si vous visitez http://grp${GRP}.soat.work , vous obtiendrez une page 404 (normal)
+
+## Déployer une API Gateway avec helm (new)
+
+Préciser votre numéro de groupe dans la variable GRP et instancier une API Gateway
+```bash
+GRP=0
+wget | sed 's/GRP/$GRP/' kubectl apply -f -
+```
 
 ### Déployer le chart Wordpress avec `Helm`
 
