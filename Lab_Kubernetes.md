@@ -238,6 +238,7 @@ Visiter
 - le site http://grp${GRP}.soat.work
 - la page d'admin http://grp${GRP}.soat.work/wp-admin
 - le login est "user" et le mot de passe est obtenu ainsi :
+
 ```bash
 kubectl get secret --namespace default my-release-wordpress -o jsonpath="{.data.wordpress-password}" | base64 -d
 ```
@@ -257,14 +258,37 @@ Puis navigation sur http://127.0.0.1:8282/dashboard/#/
 Créer `cert-manager`
 
 ```bash
-VER="1.11.4"
-VER="1.19.4"
-kubectl apply --validate=false -f https://github.com/cert-manager/cert-manager/releases/download/v${VER}/cert-manager.yaml 
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --version v1.19.4 \
+  --set crds.enabled=true \
+  --set extraArgs="{--enable-gateway-api}"
+  
 ```
 
 Créer un `cluster-issuer`  : 
+
+- Si Nginx ingress :
+
 ```bash
-wget https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/cluster-issuer.yaml
+rm -f cluster-issuer.yaml
+curl -s https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/cluster-issuer.yaml -o cluster-issuer.yaml
+```
+
+- Ou bien si Gateway API
+
+```bash
+rm -f cluster-issuer.yaml
+curl -s https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/cluster-issuer-gateway.yaml -o cluster-issuer.yaml
+```
+
+Puis
+
+```bash
 kubectl create -f cluster-issuer.yaml
 ```
 

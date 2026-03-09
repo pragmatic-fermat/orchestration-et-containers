@@ -1,10 +1,10 @@
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
-  name: letsencrypt-gateway
+  name: letsencrypt-prod
 spec:
   acme:
-    email: mon-email@example.com
+    email: no-reply@soat.work
     server: https://acme-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
       name: letsencrypt-gateway-account-key
