@@ -343,7 +343,7 @@ argocd login localhost:8080
 Ajout d’une application Web en Repo:
 
 ```bash
-argocd app create improvedguestbook --repo https://github.com/srnfr/improved-guestbook-k8s-example.git --path guestbook --dest-server https://kubernetes.default.svc --dest-namespace default
+argocd app create improvedguestbook --repo https://github.com/pragmatic-fermat/better-guestbook.git --path guestbook --dest-server https://kubernetes.default.svc --dest-namespace default
 ```
 
 Ajout d’une application `Redis` en `Helm` :
