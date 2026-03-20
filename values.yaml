@@ -1,4 +1,6 @@
 wordpressBlogName: "Mon test de Helm Chart"
+wordpressFirstName: Yo
+wordpressLastName: Lo
 persistence:
   size: 3Gi
 service:
