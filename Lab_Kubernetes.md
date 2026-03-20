@@ -321,7 +321,7 @@ rm argocd-linux-amd64
 Puis déployons ArgoCD dans le cluster 
 ```bash
 kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --server-side --force-conflicts
 
 kubectl port-forward svc/argocd-server -n argocd 8080:443 > /dev/null 2>&1 &
 ```
