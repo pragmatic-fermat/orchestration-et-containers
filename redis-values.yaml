@@ -1,0 +1,71 @@
+# values.yaml
+
+architecture: replication
+diagnosticMode.enabled: false
+
+global:
+  redis:
+    password: "redis-password"
+##
+auth:
+  enabled: false
+  sentinel: false
+  password: "redis-password"
+  ## @param auth.existingSecret The name of an existing secret with Redis&reg; credentials
+  ## NOTE: When it's set, the previous `auth.password` parameter is ignored
+  ##
+  existingSecret: ""
+  ## @param auth.existingSecretPasswordKey Password key to be retrieved from existing secret
+  ## NOTE: ignored unless `auth.existingSecret` parameter is set
+  ##
+  existingSecretPasswordKey: ""
+##
+##
+master:
+  persistence: 
+    enabled: false
+##
+replica:
+  replicaCount: 4
+  persistence: 
+    enabled: false
+##
+
+
+## Bitnami migration
+
+image:
+  registry: docker.io
+  repository: bitnamilegacy/redis
+  # tag: 7.2.2-debian-11-r0
+  
+sentinel:
+  enabled: true
+  persistence:  
+    enabled: false
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/redis
+    # tag: 7.2.2-debian-11-r0
+
+metrics:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/redis-exporter
+
+volumePermissions:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/os-shell
+
+sysctl:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/os-shell
+
+global:
+  security:
+    allowInsecureImages: true
