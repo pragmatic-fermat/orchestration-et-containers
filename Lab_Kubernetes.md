@@ -359,7 +359,7 @@ argocd app create redis --project default \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace default \
   --revision '18.1.6' \
-  --values-literal-file 'https://raw.githubusercontent.com/srnfr/kubernetes-examples/frontend-with-env/guestbook/redis-values.yaml'
+  --values-literal-file 'https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/redis-values.yaml'
 ```
 
 Application des évolutions
