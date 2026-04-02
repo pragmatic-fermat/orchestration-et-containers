@@ -211,7 +211,7 @@ curl -s https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-cont
 
 ```bash
 rm -f values.yaml
-curl -s https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/values-gateway-api.yaml -o values.yaml
+curl -s https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/values.yaml -o values.yaml
 ```
 
 Pour configure le bon GRP :
