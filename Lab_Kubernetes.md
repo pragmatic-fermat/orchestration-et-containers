@@ -114,6 +114,9 @@ Creation d'un secret :
 
 ```bash
 kubectl create secret generic mysql-pass --from-literal=password=monMDP
+```
+
+```bash
 kubectl get secret
 kubectl get secret mysql-pass -o json | jq '.data | map_values(@base64d)'
 ```
@@ -121,7 +124,10 @@ kubectl get secret mysql-pass -o json | jq '.data | map_values(@base64d)'
 Déployer maintenant le backend :
 
 ```bash
-kubectl apply -f  https://kubernetes.io/examples/application/wordpress/mysql-deployment.yaml
+kubectl apply -f https://kubernetes.io/examples/application/wordpress/mysql-deployment.yaml
+```
+
+```bash
 kubectl get pods
 kubectl get svc
 kubectl get pv
@@ -129,7 +135,10 @@ kubectl get pv
 
 Déployer la partie frontend :
 ```bash
-kubectl apply -f https://kubernetes.io/examples/application/wordpress/wordpress-deployment.yaml 
+kubectl apply -f https://kubernetes.io/examples/application/wordpress/wordpress-deployment.yaml
+```
+
+```bash
 kubectl get pods
 kubectl get svc
 kubectl get pv
@@ -593,6 +602,9 @@ spec:
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/demo-topology.yaml
+```
+
+```bash
 kubectl get pods -l app=demo-topology -o custom-columns='NAME:.metadata.name,NODE:spec.nodeName'
 ```
 
@@ -613,11 +625,16 @@ Ajoutons une contrainte de répartition : au plus un pod d'écart (`maxSkew: 1`)
             app: demo-topology
 ```
 
-Le manifeste `demo-topology.yaml` du dépôt contient déjà cette contrainte. Réappliquons pour que les pods soient recréés avec :
+Le manifeste `demo-topology-spread.yaml` du dépôt reprend le même déploiement avec cette contrainte ajoutée. Remplaçons le déploiement :
 
 ```bash
 kubectl delete deployment demo-topology
-kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/demo-topology.yaml
+kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/demo-topology-spread.yaml
+```
+
+Observons la répartition :
+
+```bash
 kubectl get pods -l app=demo-topology -o custom-columns='NAME:.metadata.name,NODE:spec.nodeName'
 ```
 
@@ -732,6 +749,9 @@ spec:
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/demo-psa-conforme.yaml
+```
+
+```bash
 kubectl get pod psa-conforme -n demo-psa
 ```
 
@@ -1033,10 +1053,23 @@ kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/downloa
 Installation du plan de contrôle :
 ```
 linkerd check --pre
+```
+
+```
 linkerd install --crds | kubectl apply -f -
 linkerd install | kubectl apply -f -
+```
+
+Vérifions le plan de contrôle, puis installons l'extension viz :
+```
 linkerd check
+```
+
+```
 linkerd viz install | kubectl apply -f -
+```
+
+```
 linkerd viz check
 kubectl -n linkerd get deploy
 linkerd viz dashboard &
@@ -1045,7 +1078,10 @@ linkerd viz dashboard &
 Puis
 ```
 kubectl apply -f https://run.linkerd.io/emojivoto.yml
-kubectl -n emojivoto  get all
+```
+
+```
+kubectl -n emojivoto get all
 ```
 
 ### Visite du site web

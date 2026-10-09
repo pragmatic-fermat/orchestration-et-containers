@@ -12,6 +12,13 @@ spec:
       labels:
         app: demo-topology
     spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: demo-topology
       containers:
       - name: podinfo
         image: stefanprodan/podinfo:latest
