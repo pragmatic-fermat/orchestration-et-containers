@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: psa-non-conforme
+  namespace: demo-psa
+spec:
+  containers:
+  - name: podinfo
+    image: stefanprodan/podinfo:latest
+    securityContext:
+      allowPrivilegeEscalation: true

@@ -5,6 +5,8 @@
 - [Deployer une application en yaml](#deployer-une-application-stateful-avec-pv/pvc)
 - [Déployer avec Helm, avec ingress/api gateway et certificat TLS](#déployer-une-appli-en-https)
 - [Ajuster les ressources des Pods à chaud (VPA)](#ajuster-les-ressources-des-pods-à-chaud-vpa)
+- [Répartir les Pods sur les nœuds (anti-affinité et topology spread)](#répartir-les-pods-sur-les-nœuds-anti-affinité-et-topology-spread)
+- [Sécuriser les Pods avec la Pod Security Admission](#sécuriser-les-pods-avec-la-pod-security-admission)
 - [Mettre en place un CD avec ArgoCD](#utiliser-argocd)
 - [Cloisonner et Filtrer avec les Network Policies](#mettre-en-place-un-network-policy)
 - [Service Mesh with Linkerd](#service-mesh-linkerd)
@@ -413,7 +415,7 @@ spec:
 ```
 
 ```bash
-kubectl apply -f demo-vpa.yaml
+kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/demo-vpa.yaml
 ```
 
 Si votre cluster supporte le resize in place (la feature gate `InPlacePodVerticalScaling`, bêta activée par défaut depuis Kubernetes 1.33), on peut ajouter aux ressources du conteneur un bloc `resizePolicy` qui autorise CPU et mémoire à être redimensionnés sans redémarrage du conteneur :
@@ -503,7 +505,7 @@ spec:
 ```
 
 ```bash
-kubectl apply -f vpa-demo-vpa.yaml
+kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/vpa-demo-vpa.yaml
 ```
 
 Au bout de quelques minutes (le temps que le `recommender` analyse les métriques) :
@@ -544,6 +546,208 @@ Cleanup :
 ```bash
 kubectl delete vpa demo-vpa
 kubectl delete deployment demo-vpa
+```
+
+## Répartir les Pods sur les nœuds (anti-affinité et topology spread)
+
+Par défaut, le scheduler place les pods là où il y a de la place, sans garantir leur répartition. Si tous les replicas d'un déploiement atterrissent sur le même nœud et que celui-ci tombe, l'application disparaît d'un coup. Kubernetes offre deux mécanismes pour contrôler cette répartition :
+
+- l'**anti-affinité de pods** : contrainte d'affinité classique entre pods, à déclarer sur chaque pod
+- les **topology spread constraints** : un mécanisme dédié à la répartition, plus expressif, apparu pour ça
+
+Observons d'abord les nœuds du cluster et leurs labels de topologie :
+
+```bash
+kubectl get nodes -L kubernetes.io/hostname -L topology.kubernetes.io/zone
+```
+
+Chaque nœud porte deux labels utiles : `kubernetes.io/hostname` (le nœud lui-même) et `topology.kubernetes.io/zone` (la zone de disponibilité). On peut répartir les pods sur l'un ou l'autre selon ce qu'on veut tolérer : la perte d'un nœud ou la perte d'une zone entière.
+
+### Le comportement par défaut
+
+Déployons six replicas sans contrainte, pour voir ce que donne le hasard :
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-topology
+spec:
+  replicas: 6
+  selector:
+    matchLabels:
+      app: demo-topology
+  template:
+    metadata:
+      labels:
+        app: demo-topology
+    spec:
+      containers:
+      - name: podinfo
+        image: stefanprodan/podinfo:latest
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+```
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/demo-topology.yaml
+kubectl get pods -l app=demo-topology -o custom-columns='NAME:.metadata.name,NODE:spec.nodeName'
+```
+
+Sur un petit cluster, il n'est pas rare de voir plusieurs pods (parfois tous) sur le même nœud.
+
+### Répartir avec topologySpreadConstraints
+
+Ajoutons une contrainte de répartition : au plus un pod d'écart (`maxSkew: 1`) entre les nœuds, sinon le pod reste en attente (`DoNotSchedule`) :
+
+```yaml
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: demo-topology
+```
+
+Le manifeste `demo-topology.yaml` du dépôt contient déjà cette contrainte. Réappliquons pour que les pods soient recréés avec :
+
+```bash
+kubectl delete deployment demo-topology
+kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/demo-topology.yaml
+kubectl get pods -l app=demo-topology -o custom-columns='NAME:.metadata.name,NODE:spec.nodeName'
+```
+
+Les pods sont désormais équirépartis sur les nœuds disponibles. Quelques précisions :
+
+- `topologyKey` choisit le domaine de répartition : `kubernetes.io/hostname` répartit entre les nœuds, `topology.kubernetes.io/zone` entre les zones (le bon réflexe sur un cluster multi-zones comme GKE, EKS ou Kosmos)
+- `maxSkew` fixe l'écart maximum autorisé entre le domaine le plus chargé et le moins chargé ; 1 est la valeur courante
+- `whenUnsatisfiable: DoNotSchedule` bloque le pod tant que la contrainte n'est pas satisfaisable ; `ScheduleAnyway` en fait une préférence (le scheduler essaie, mais place le pod quoi qu'il arrive)
+
+Variante avec l'anti-affinité, qui force cette fois un seul pod par nœud :
+
+```yaml
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: demo-topology
+            topologyKey: kubernetes.io/hostname
+```
+
+Notons la différence de comportement si le cluster a moins de nœuds que de replicas : avec cette anti-affinité stricte, les pods surnuméraires restent en `Pending` (au plus un pod par nœud), alors que la topology spread constraint les laisse se placer avec le skew autorisé. La version `preferredDuringSchedulingIgnoredDuringExecution` de l'anti-affinité est l'équivalent souple de `ScheduleAnyway`.
+
+En pratique : l'anti-affinité stricte pour les composants critiques qu'on veut isoler (un pods par nœud), les topology spread constraints pour la répartition générale des replicas.
+
+Cleanup :
+
+```bash
+kubectl delete deployment demo-topology
+```
+
+## Sécuriser les Pods avec la Pod Security Admission
+
+Historiquement, la sécurité des pods passait par la Pod Security Policy (PSP), supprimée de Kubernetes en 1.25 et remplacée par la **Pod Security Admission** (PSA). C'est un admission controller intégré, sans CRD ni webhook à installer : on configure la politique par des labels sur les namespaces.
+
+Trois niveaux de sécurité :
+
+- `privileged` : aucune restriction (niveau par défaut)
+- `baseline` : bloque les usages connus pour élever les privilèges (hostNetwork, hostPath, privileged...)
+- `restricted` : suit les bonnes pratiques durcies (pas de root, seccomp, pas d'escalade de privilèges)
+
+Et trois modes d'application, combinables :
+
+- `enforce` : rejette les pods non conformes
+- `audit` : laisse passer mais journalise la violation dans les audit logs
+- `warn` : laisse passer mais affiche un message d'avertissement à l'utilisateur
+
+Créons un namespace configuré en `restricted` :
+
+```bash
+kubectl create namespace demo-psa
+kubectl label namespace demo-psa \
+  pod-security.kubernetes.io/enforce=restricted \
+  pod-security.kubernetes.io/warn=restricted \
+  pod-security.kubernetes.io/audit=restricted
+```
+
+### Un pod non conforme est rejeté
+
+Le fichier `demo-psa-non-conforme.yaml` déclare un pod qui autorise l'escalade de privilèges :
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: psa-non-conforme
+  namespace: demo-psa
+spec:
+  containers:
+  - name: podinfo
+    image: stefanprodan/podinfo:latest
+    securityContext:
+      allowPrivilegeEscalation: true
+```
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/demo-psa-non-conforme.yaml
+```
+
+L'API server refuse la création avec une erreur explicite qui détaille chaque règle violée :
+
+```
+Error from server (Forbidden): error when creating "demo-psa-non-conforme.yaml":
+pods "psa-non-conforme" is forbidden: violates PodSecurity "restricted:latest":
+allowPrivilegeEscalation != false (container "podinfo" must set securityContext.allowPrivilegeEscalation=false)...
+```
+
+### Un pod conforme passe
+
+Le fichier `demo-psa-conforme.yaml` corrige ce qui bloque le niveau `restricted` : exécution sans root, seccomp `RuntimeDefault`, pas d'escalade de privilèges, capacités Linux toutes retirées :
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: psa-conforme
+  namespace: demo-psa
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: podinfo
+    image: stefanprodan/podinfo:latest
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+```
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/demo-psa-conforme.yaml
+kubectl get pod psa-conforme -n demo-psa
+```
+
+Le pod démarre. Remarquons que le pod se conforme au niveau `restricted` : c'est le niveau exigé par la plupart des chart Helm et opérateurs modernes, et le niveau par défaut que la Kubernetes community recommande pour les namespaces applicatifs.
+
+Quelques précisions :
+
+- la politique s'applique au moment de la création et à chaque mise à jour du pod ; les pods déjà en place ne sont jamais évincés
+- les labels de version (`pod-security.kubernetes.io/enforce-version`) permettent de figer la politique sur une version de Kubernetes précise plutôt que `latest`, pour éviter les surprises lors des upgrades de cluster
+- les namespaces du système (`kube-system`...) sont exemptés par défaut
+- pour un pod issu d'un contrôleur (Deployment, DaemonSet...), c'est le template du pod qui est évalué : un Deployment non conforme est rejeté en entier dès le `kubectl apply`
+
+Cleanup :
+
+```bash
+kubectl delete namespace demo-psa
 ```
 
 ## Utiliser ArgoCD
@@ -811,17 +1015,29 @@ kubectl exec -it redis-follower-xxxx -- redis-cli -h redis-leader.default.svc -p
 ## Service Mesh Linkerd
 
 ### Installation
+
+Au moment où je mets à jour ce lab, la dernière version stable de Linkerd est la 2.20 (annoncée en juin 2026) et la CLI edge la plus récente est la edge-26.10.1. Le projet amont ne publie plus lui-même de releases stable : celles-ci sont désormais fournies par des vendeurs (Buoyant Enterprise). Pour un atelier, j'utilise donc le canal edge, qui reste le canal officiel du projet.
+
+Je récupère la CLI :
 ```
-curl -sL https://run.linkerd.io/install-edge
- | sh
+curl -sL https://run.linkerd.io/install-edge | sh
 export PATH=$PATH:$HOME/.linkerd2/bin
 linkerd version
+```
+
+Linkerd requiert les CRD Gateway API. Chez DigitalOcean ils sont déjà installés (avec Cilium), sinon :
+```
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
+```
+
+Installation du plan de contrôle :
+```
 linkerd check --pre
 linkerd install --crds | kubectl apply -f -
 linkerd install | kubectl apply -f -
 linkerd check
 linkerd viz install | kubectl apply -f -
-linkerd check
+linkerd viz check
 kubectl -n linkerd get deploy
 linkerd viz dashboard &
 ```
@@ -837,7 +1053,13 @@ kubectl -n emojivoto  get all
 ```
 kubectl -n emojivoto port-forward svc/web-svc 8181:80
 ```
-Maintenant injection (de sidecar proxies) par Linkerd :
+Maintenant l'injection (des sidecar proxies) par Linkerd. La méthode recommandée est l'annotation `linkerd.io/inject: enabled`, sur le namespace ou sur chaque déploiement. Depuis la 2.20, le proxy tourne par défaut en conteneur d'init (native sidecar) :
+```
+kubectl annotate ns emojivoto linkerd.io/inject=enabled
+kubectl -n emojivoto rollout restart deployment
+```
+
+L'équivalent en transformation de manifeste reste possible avec `linkerd inject`, qui ne fait qu'ajouter cette annotation :
 ```
 kubectl get -n emojivoto deploy -o yaml \
   | linkerd inject - \
@@ -917,6 +1139,9 @@ kubectl get httproute -n default
 ```
 
 ### Cleanup
+
+Je retire d'abord les extensions, puis le plan de contrôle (après avoir supprimé les annotations d'injection et relancé les déploiements pour retirer les proxies du data plane) :
 ```
-linkerd install --ignore-cluster | kubectl delete -f -
+linkerd viz uninstall | kubectl delete -f -
+linkerd uninstall | kubectl delete -f -
 ```
