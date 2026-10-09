@@ -325,6 +325,14 @@ Prérequis : un cluster en 1.33 minimum.
 kubectl version
 ```
 
+État des lieux (9 octobre 2026) : la fonctionnalité est GA depuis Kubernetes 1.35, mais **DOKS la désactive côté control plane**, même sur un cluster en 1.37 : l'API server rejette le champ `resizePolicy` avec une erreur `strict decoding error: unknown field`, et le resize à chaud (à la main comme via le VPA en mode `InPlaceOrRecreate`) retombe sur une recréation des pods. Aucune demande de feature publique n'existe chez DigitalOcean à ce jour. À retester dans les mois prochains, par exemple avec :
+
+```bash
+kubectl explain deployment.spec.template.spec.containers.resources --recursive | grep resize
+```
+
+Si la commande liste `resizePolicy`, la fonctionnalité est disponible et les sections suivantes marchent telles quelles. En attendant, la démo reste valable sur DOKS en mode recréation des pods.
+
 ### Installer le metrics server
 
 La plupart des clusters managés (DOKS en particulier) l'embarquent déjà :
@@ -370,7 +378,7 @@ On doit trouver trois composants :
 
 ### Préparer un déploiement de démonstration
 
-Reprenons `podinfo`, avec des ressources volontairement sous-dimensionnées. Le champ `resizePolicy` indique que CPU et mémoire peuvent être redimensionnés sans redémarrage (par défaut, la mémoire impose un redémarrage du conteneur).
+Reprenons `podinfo`, avec des ressources volontairement sous-dimensionnées.
 
 ```yaml
 apiVersion: apps/v1
@@ -407,6 +415,31 @@ spec:
 ```bash
 kubectl apply -f demo-vpa.yaml
 ```
+
+Si votre cluster supporte le resize in place (la feature gate `InPlacePodVerticalScaling`, bêta activée par défaut depuis Kubernetes 1.33), on peut ajouter aux ressources du conteneur un bloc `resizePolicy` qui autorise CPU et mémoire à être redimensionnés sans redémarrage du conteneur :
+
+```yaml
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+            resizePolicy:
+            - resourceName: cpu
+              restartPolicy: NotRequired
+            - resourceName: memory
+              restartPolicy: NotRequired
+```
+
+Pour savoir si c'est supporté, interrogeons l'API :
+
+```bash
+kubectl explain deployment.spec.template.spec.containers.resources --recursive | grep resize
+```
+
+Certains clusters managés désactivent la gate (c'est le cas de DOKS, y compris en 1.37) : le champ `resizePolicy` est alors rejeté avec une erreur `strict decoding error: unknown field ... resizePolicy`, et les sections suivantes retombent sur un comportement de recréation des pods au lieu du resize à chaud.
 
 Relevons l'état initial (heure de démarrage et ressources des pods) :
 
@@ -448,6 +481,8 @@ Le pod n'a pas redémarré (`RESTARTS` reste à 0, l'heure de démarrage est inc
 ```bash
 kubectl describe pod $POD
 ```
+
+Sur un cluster où la gate `InPlacePodVerticalScaling` est désactivée (voir plus haut), ce patch est rejeté par l'API server : le resize à chaud à la main n'est pas possible, il faut passer par un `rollout`.
 
 ### Laisser le VPA faire : mode Off puis InPlaceOrRecreate
 
@@ -491,7 +526,7 @@ Observons :
 kubectl get pods -l app=demo-vpa -w
 ```
 
-Rien ne change : aucun pod redémarré, pas de nouveau `ReplicaSet`. Pourtant, au bout de quelques minutes, les ressources des pods ont bien été augmentées in-place :
+Sur un cluster qui supporte le resize in place, rien ne change : aucun pod redémarré, pas de nouveau `ReplicaSet`. Sur un cluster où la gate est désactivée, on voit au contraire les pods être recréés. Dans les deux cas, au bout de quelques minutes, les ressources des pods ont bien été augmentées :
 
 ```bash
 kubectl get pods -l app=demo-vpa -o custom-columns='NAME:.metadata.name,START:.status.startTime,RESTARTS:.status.containerStatuses[0].restartCount,CPU_REQ:.spec.containers[0].resources.requests.cpu,MEM_REQ:.spec.containers[0].resources.requests.memory,MEM_LIM:.spec.containers[0].resources.limits.memory'
@@ -499,8 +534,9 @@ kubectl get pods -l app=demo-vpa -o custom-columns='NAME:.metadata.name,START:.s
 
 Quelques précisions :
 
-- augmenter les ressources se fait sans coupure ; une *diminution* de la mémoire nécessite le redémarrage du conteneur (le mode `InPlaceOrRecreate` retombe alors sur un comportement `Recreate`)
-- le resize se fait sur le même nœud : il faut de la capacité disponible sur celui-ci, sinon la modification échoue
+- sur un cluster où la gate `InPlacePodVerticalScaling` est active, augmenter les ressources se fait sans coupure ; une *diminution* de la mémoire nécessite le redémarrage du conteneur (le mode `InPlaceOrRecreate` retombe alors sur un comportement `Recreate`)
+- sur un cluster où la gate est désactivée (DOKS par exemple), le mode `InPlaceOrRecreate` se comporte comme `Recreate` : les pods sont recréés avec les nouvelles ressources, on le voit dans la sortie de `kubectl get pods -w` (nouveaux pods, heure de démarrage réinitialisée)
+- le resize in place se fait sur le même nœud : il faut de la capacité disponible sur celui-ci, sinon la modification échoue
 - en mode `Off`, le VPA ne fait que recommander ; les modes `Initial` (ressources fixées à la création seulement) et `Recreate` (recréation des pods) restent disponibles
 
 Cleanup :
