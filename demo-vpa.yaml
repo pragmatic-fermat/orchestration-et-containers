@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-vpa
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: demo-vpa
+  template:
+    metadata:
+      labels:
+        app: demo-vpa
+    spec:
+      containers:
+      - name: podinfo
+        image: stefanprodan/podinfo:latest
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 50m
+            memory: 32Mi
+          resizePolicy:
+          - resourceName: cpu
+            restartPolicy: NotRequired
+          - resourceName: memory
+            restartPolicy: NotRequired

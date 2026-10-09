@@ -4,6 +4,7 @@
 - [K8s 101](#k8s-101)
 - [Deployer une application en yaml](#deployer-une-application-stateful-avec-pv/pvc)
 - [Déployer avec Helm, avec ingress/api gateway et certificat TLS](#déployer-une-appli-en-https)
+- [Ajuster les ressources des Pods à chaud (VPA)](#ajuster-les-ressources-des-pods-à-chaud-vpa)
 - [Mettre en place un CD avec ArgoCD](#utiliser-argocd)
 - [Cloisonner et Filtrer avec les Network Policies](#mettre-en-place-un-network-policy)
 - [Service Mesh with Linkerd](#service-mesh-linkerd)
@@ -306,6 +307,208 @@ grp0.soat.work-tls   True    grp0.soat.work-tls   3m46s
 ```
 Visiter https://grp${GRP}.soat.work et constater le certificat TLS.
 
+
+## Ajuster les ressources des Pods à chaud (VPA)
+
+Jusqu'à présent, pour changer les `requests`/`limits` d'un déploiement, il fallait patcher le déploiement : cela crée un nouveau `ReplicaSet` et les pods sont recréés (rollout).
+
+Depuis Kubernetes 1.33, la fonctionnalité `InPlacePodVerticalScaling` est activée par défaut (beta) : on peut modifier les ressources d'un pod en place, sans redémarrer le conteneur. Le **Vertical Pod Autoscaler** (VPA) sait exploiter ce mécanisme avec son mode `InPlaceOrRecreate` : il recommande puis applique les nouvelles ressources automatiquement.
+
+Pour cela, il faut deux briques, toutes deux des projets officiels Kubernetes, sans aucune spécificité DigitalOcean : la même procédure fonctionne sur Scaleway, OVH, GKE...
+
+- le `metrics-server` : agrège les métriques CPU/mémoire des pods. Il est nécessaire au VPA, au HPA et à `kubectl top`.
+- le `vertical-pod-autoscaler` : calcule les recommandations et les applique.
+
+Prérequis : un cluster en 1.33 minimum.
+
+```bash
+kubectl version
+```
+
+### Installer le metrics server
+
+La plupart des clusters managés (DOKS en particulier) l'embarquent déjà :
+
+```bash
+kubectl top nodes
+```
+
+Si la commande répond, rien à faire. Sinon, installons-le avec son chart officiel :
+
+```bash
+helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+helm upgrade -i metrics-server metrics-server/metrics-server --namespace kube-system
+```
+
+Vérification (après une à deux minutes, le temps que les métriques arrivent) :
+
+```bash
+kubectl top nodes
+kubectl top pods -A
+```
+
+### Installer le Vertical Pod Autoscaler
+
+On utilise le chart officiel du projet :
+
+```bash
+helm repo add autoscalers https://kubernetes.github.io/autoscaler
+helm repo update
+helm upgrade -i vpa autoscalers/vertical-pod-autoscaler --version 0.13.0 --namespace vpa --create-namespace
+```
+
+```bash
+kubectl get pods -n vpa
+kubectl get crd verticalpodautoscalers.autoscaling.k8s.io
+```
+
+On doit trouver trois composants :
+
+- `vpa-admission-controller` : webhook qui injecte les ressources recommandées à la création des pods
+- `vpa-recommender` : calcule les recommandations à partir des métriques du `metrics-server`
+- `vpa-updater` : applique les changements selon le mode choisi dans l'objet `VPA`
+
+### Préparer un déploiement de démonstration
+
+Reprenons `podinfo`, avec des ressources volontairement sous-dimensionnées. Le champ `resizePolicy` indique que CPU et mémoire peuvent être redimensionnés sans redémarrage (par défaut, la mémoire impose un redémarrage du conteneur).
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-vpa
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: demo-vpa
+  template:
+    metadata:
+      labels:
+        app: demo-vpa
+    spec:
+      containers:
+      - name: podinfo
+        image: stefanprodan/podinfo:latest
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 50m
+            memory: 32Mi
+          resizePolicy:
+          - resourceName: cpu
+            restartPolicy: NotRequired
+          - resourceName: memory
+            restartPolicy: NotRequired
+```
+
+```bash
+kubectl apply -f demo-vpa.yaml
+```
+
+Relevons l'état initial (heure de démarrage et ressources des pods) :
+
+```bash
+kubectl get pods -l app=demo-vpa -o custom-columns='NAME:.metadata.name,START:.status.startTime,RESTARTS:.status.containerStatuses[0].restartCount,CPU_REQ:.spec.containers[0].resources.requests.cpu,MEM_REQ:.spec.containers[0].resources.requests.memory'
+```
+
+### Le comportement historique : un rollout
+
+Changeons les ressources côté déploiement :
+
+```bash
+kubectl set resources deployment/demo-vpa --limits=cpu=100m
+kubectl rollout status deployment/demo-vpa
+```
+
+Relançons la commande précédente : les pods ont été recréés, l'heure de démarrage a changé. Remettons le déploiement dans son état initial :
+
+```bash
+kubectl set resources deployment/demo-vpa --limits=cpu=50m
+kubectl rollout status deployment/demo-vpa
+```
+
+### Le resize à chaud, à la main
+
+Patchons directement un pod (nécessite `kubectl` en 1.33 minimum) :
+
+```bash
+POD=$(kubectl get pods -l app=demo-vpa -o jsonpath='{.items[0].metadata.name}')
+kubectl patch pod $POD --type=merge -p '{"spec":{"containers":[{"name":"podinfo","resources":{"limits":{"cpu":"200m"}}}]}}'
+```
+
+```bash
+kubectl get pod $POD -o custom-columns='NAME:.metadata.name,START:.status.startTime,RESTARTS:.status.containerStatuses[0].restartCount,CPU_LIM:.spec.containers[0].resources.limits.cpu'
+```
+
+Le pod n'a pas redémarré (`RESTARTS` reste à 0, l'heure de démarrage est inchangée), mais sa limite CPU est passée à 200m. On peut le constater aussi dans les events :
+
+```bash
+kubectl describe pod $POD
+```
+
+### Laisser le VPA faire : mode Off puis InPlaceOrRecreate
+
+Commençons par observer ce que recommande le VPA, sans rien appliquer (mode `Off`) :
+
+```yaml
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: demo-vpa
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: demo-vpa
+  updatePolicy:
+    updateMode: "Off"
+```
+
+```bash
+kubectl apply -f vpa-demo-vpa.yaml
+```
+
+Au bout de quelques minutes (le temps que le `recommender` analyse les métriques) :
+
+```bash
+kubectl describe vpa demo-vpa
+```
+
+La section `Recommendation` montre la cible (`target`) et les bornes (`lowerBound`/`upperBound`) calculées à partir de l'usage réel.
+
+Passons maintenant en mode `InPlaceOrRecreate` :
+
+```bash
+kubectl patch vpa demo-vpa --type=merge -p '{"spec":{"updatePolicy":{"updateMode":"InPlaceOrRecreate"}}}'
+```
+
+Observons :
+
+```bash
+kubectl get pods -l app=demo-vpa -w
+```
+
+Rien ne change : aucun pod redémarré, pas de nouveau `ReplicaSet`. Pourtant, au bout de quelques minutes, les ressources des pods ont bien été augmentées in-place :
+
+```bash
+kubectl get pods -l app=demo-vpa -o custom-columns='NAME:.metadata.name,START:.status.startTime,RESTARTS:.status.containerStatuses[0].restartCount,CPU_REQ:.spec.containers[0].resources.requests.cpu,MEM_REQ:.spec.containers[0].resources.requests.memory,MEM_LIM:.spec.containers[0].resources.limits.memory'
+```
+
+Quelques précisions :
+
+- augmenter les ressources se fait sans coupure ; une *diminution* de la mémoire nécessite le redémarrage du conteneur (le mode `InPlaceOrRecreate` retombe alors sur un comportement `Recreate`)
+- le resize se fait sur le même nœud : il faut de la capacité disponible sur celui-ci, sinon la modification échoue
+- en mode `Off`, le VPA ne fait que recommander ; les modes `Initial` (ressources fixées à la création seulement) et `Recreate` (recréation des pods) restent disponibles
+
+Cleanup :
+
+```bash
+kubectl delete vpa demo-vpa
+kubectl delete deployment demo-vpa
+```
 
 ## Utiliser ArgoCD
 
