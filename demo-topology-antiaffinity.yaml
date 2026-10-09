@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-topology
+spec:
+  replicas: 6
+  selector:
+    matchLabels:
+      app: demo-topology
+  template:
+    metadata:
+      labels:
+        app: demo-topology
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: demo-topology
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: podinfo
+        image: stefanprodan/podinfo:latest
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi

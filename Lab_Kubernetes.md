@@ -644,7 +644,7 @@ Les pods sont désormais équirépartis sur les nœuds disponibles. Quelques pr�
 - `maxSkew` fixe l'écart maximum autorisé entre le domaine le plus chargé et le moins chargé ; 1 est la valeur courante
 - `whenUnsatisfiable: DoNotSchedule` bloque le pod tant que la contrainte n'est pas satisfaisable ; `ScheduleAnyway` en fait une préférence (le scheduler essaie, mais place le pod quoi qu'il arrive)
 
-Variante avec l'anti-affinité, qui force cette fois un seul pod par nœud :
+Variante avec l'anti-affinité, qui force cette fois un seul pod par nœud. Le manifeste `demo-topology-antiaffinity.yaml` du dépôt reprend le même déploiement avec :
 
 ```yaml
     spec:
@@ -655,6 +655,19 @@ Variante avec l'anti-affinité, qui force cette fois un seul pod par nœud :
               matchLabels:
                 app: demo-topology
             topologyKey: kubernetes.io/hostname
+```
+
+Remplaçons le déploiement :
+
+```bash
+kubectl delete deployment demo-topology
+kubectl apply -f https://raw.githubusercontent.com/pragmatic-fermat/orchestration-et-containers/refs/heads/main/demo-topology-antiaffinity.yaml
+```
+
+Observons la répartition :
+
+```bash
+kubectl get pods -l app=demo-topology -o custom-columns='NAME:.metadata.name,NODE:spec.nodeName'
 ```
 
 Notons la différence de comportement si le cluster a moins de nœuds que de replicas : avec cette anti-affinité stricte, les pods surnuméraires restent en `Pending` (au plus un pod par nœud), alors que la topology spread constraint les laisse se placer avec le skew autorisé. La version `preferredDuringSchedulingIgnoredDuringExecution` de l'anti-affinité est l'équivalent souple de `ScheduleAnyway`.
